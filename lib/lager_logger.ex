@@ -27,17 +27,11 @@ defmodule LagerLogger do
         _ -> Process.group_leader # if lager didn't give us a pid just pretend it's us
       end
 
-      try do
-        notify(mode, {level, group_leader, {Logger, message, timestamp, metadata}})
-        :ok
-      rescue
-        ArgumentError -> {:error, :noproc}
-      catch
-        :exit, reason -> {:error, reason}
-      end
+      _ = notify(mode, {level, group_leader, {Logger, message, timestamp, metadata}})
+      {:ok, state}
+    else
+      {:ok, state}
     end
-
-    {:ok, state}
   end
 
   @doc ~S"""

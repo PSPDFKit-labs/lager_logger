@@ -1,0 +1,2 @@
+%{"goldrush": {:hex, :goldrush, "0.1.6"},
+  "lager": {:hex, :lager, "2.1.1"}}

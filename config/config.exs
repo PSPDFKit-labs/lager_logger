@@ -10,4 +10,4 @@ config :lager, :error_logger_whitelist, [Logger.ErrorHandler]
 config :lager, :crash_log, false
 
 # Use LagerLogger as lager's only handler.
-config :lager, :handlers, [{LagerLogger, []}]
+config :lager, :handlers, [{LagerLogger, [level: :debug]}]

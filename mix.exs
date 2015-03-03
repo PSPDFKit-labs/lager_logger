@@ -3,7 +3,7 @@ defmodule LagerLogger.Mixfile do
 
   def project do
     [app: :lager_logger,
-     version: "0.9.0",
+     version: "0.9.1",
      elixir: ">= 1.0.0 and <= 1.0.3",
      package: package,
      description: description,
@@ -11,7 +11,7 @@ defmodule LagerLogger.Mixfile do
   end
 
   defp package do
-    [contributors: ["Martin Schurrer"],
+    [contributors: ["Martin Schurrer", "James Fish"],
      licenses: ["Apache 2.0"],
      links: %{"GitHub" => "https://github.com/PSPDFKit-labs/lager_logger"},
      files: ["lib", "mix.exs", "README.md"]]

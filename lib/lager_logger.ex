@@ -21,6 +21,20 @@ defmodule LagerLogger do
   """
   @behaviour :gen_event
 
+  @doc """
+  Flushes lager and Logger
+
+  Guarantees that all messages sent to `:error_logger` and `:lager`, prior to
+  this call, have been handled by Logger.
+  """
+  @spec flush() :: :ok
+  def flush() do
+    _ = GenEvent.which_handlers(:error_logger)
+    _ = GenEvent.which_handlers(:lager_event)
+    _ = GenEvent.which_handlers(Logger)
+    :ok
+  end
+
   @doc false
   def init([]) do
     {:ok, nil}

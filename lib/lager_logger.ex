@@ -17,22 +17,46 @@ defmodule LagerLogger do
       config :lager, :crash_log, false
 
       # Use LagerLogger as lager's only handler.
-      config :lager, :handlers, [{LagerLogger, []}]
+      config :lager, :handlers, [{LagerLogger, [level: :debug]}]
   """
+
+  use Bitwise
+
   @behaviour :gen_event
 
-  @doc false
-  def init([]) do
-    {:ok, nil}
+  @doc """
+  Flushes lager and Logger
+
+  Guarantees that all messages sent to `:error_logger` and `:lager`, prior to
+  this call, have been handled by Logger.
+  """
+  @spec flush() :: :ok
+  def flush() do
+    _ = GenEvent.which_handlers(:error_logger)
+    _ = GenEvent.which_handlers(:lager_event)
+    _ = GenEvent.which_handlers(Logger)
+    :ok
   end
 
+  @doc false
+  def init(opts) do
+    config = Keyword.get(opts, :level, :debug)
+    case config_to_mask(config) do
+      {:ok, _mask} = ok ->
+        ok
+      {:error, reason} ->
+        {:error, {:fatal, reason}}
+    end
+  end
 
   @doc false
-  def handle_event({:log, lager_msg}, state) do
+  def handle_event({:log, lager_msg}, mask) do
     %{mode: mode, truncate: truncate, level: min_level, utc_log: utc_log?} = Logger.Config.__data__
     level = severity_to_level(:lager_msg.severity(lager_msg))
 
-    if Logger.compare_levels(level, min_level) != :lt do
+    if :lager_util.is_loggable(lager_msg, mask, __MODULE__) and
+      Logger.compare_levels(level, min_level) != :lt do
+
       metadata = :lager_msg.metadata(lager_msg) |> normalize_pid
 
       # lager_msg's message is already formatted chardata
@@ -47,35 +71,48 @@ defmodule LagerLogger do
       end
 
       _ = notify(mode, {level, group_leader, {Logger, message, timestamp, metadata}})
-      {:ok, state}
+      {:ok, mask}
     else
-      {:ok, state}
+      {:ok, mask}
     end
   end
 
   @doc false
-  # Always returns debug (=log everything) since lager will prefilter log messages for us based on
-  # what we return here. And since we let Logger perform the level filtering we need to receive and
-  # forward all log messages to Logger.
-  def handle_call(:get_loglevel, state) do
-    {:ok, 128, state}
+  def handle_call(:get_loglevel, mask) do
+    {:ok, mask, mask}
   end
 
-  # Ignored since we forward all log messages to Logger and use its loglevel
-  def handle_call({:set_loglevel, _}, state) do
-    {:ok, :ok, state}
-  end
-
-  @doc false
-  def handle_info(_msg, state) do
-    {:ok, state}
+  def handle_call({:set_loglevel, config}, mask) do
+    case config_to_mask(config) do
+      {:ok, mask} ->
+        {:ok, :ok, mask}
+      {:error, _reason} = error ->
+        {:ok, error, mask}
+    end
   end
 
   @doc false
-  def terminate(_reason, _state), do: :ok
+  def handle_info(_msg, mask) do
+    {:ok, mask}
+  end
 
   @doc false
-  def code_change(_old, state, _extra), do: {:ok, state}
+  def terminate(_reason, _mask), do: :ok
+
+  @doc false
+  def code_change(_old, mask, _extra), do: {:ok, mask}
+
+  defp config_to_mask(config) do
+    try do
+      :lager_util.config_to_mask(config)
+    catch
+      _, _ ->
+        {:error, {:bad_log_level, config}}
+    else
+      mask ->
+        {:ok, mask}
+    end
+  end
 
   # Stolen from Logger.
   defp notify(:sync, msg),  do: GenEvent.sync_notify(Logger, msg)

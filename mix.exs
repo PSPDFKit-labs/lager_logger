@@ -30,6 +30,7 @@ defmodule LagerLogger.Mixfile do
 
   defp deps do
     [
+      {:ex_doc, ">= 0.0.0", only: :dev},
       {:lager, ">= 2.1.0"},
     ]
   end

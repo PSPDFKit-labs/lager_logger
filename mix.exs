@@ -5,9 +5,9 @@ defmodule LagerLogger.Mixfile do
     [app: :lager_logger,
      version: "1.0.3",
      elixir: ">= 1.1.0 and <= 1.4.0",
-     package: package,
-     description: description,
-     deps: deps]
+     package: package(),
+     description: description(),
+     deps: deps()]
   end
 
   defp package do

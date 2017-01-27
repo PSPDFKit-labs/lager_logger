@@ -4,10 +4,10 @@ defmodule LagerLogger.Mixfile do
   def project do
     [app: :lager_logger,
      version: "1.0.3",
-     elixir: ">= 1.1.0 and <= 1.4.0",
-     package: package,
-     description: description,
-     deps: deps]
+     elixir: ">= 1.1.0 and < 1.5.0",
+     package: package(),
+     description: description(),
+     deps: deps()]
   end
 
   defp package do

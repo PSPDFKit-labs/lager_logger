@@ -66,7 +66,11 @@ defmodule LagerLogger do
       timestamp = timestamp(:lager_msg.timestamp(lager_msg), utc_log?)
 
       group_leader = case Keyword.fetch(metadata, :pid) do
-        {:ok, pid} when is_pid(pid) -> Process.info(pid, :group_leader)
+        {:ok, pid} when is_pid(pid) ->
+          case Process.info(pid, :group_leader) do
+            {:group_leader, gl} -> gl
+            nil -> Process.group_leader # if pid dead, pretend it's us as must be a pid
+          end
         _ -> Process.group_leader # if lager didn't give us a pid just pretend it's us
       end
 

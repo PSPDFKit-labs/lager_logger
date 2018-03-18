@@ -32,9 +32,9 @@ defmodule LagerLogger do
   """
   @spec flush() :: :ok
   def flush() do
-    _ = GenEvent.which_handlers(:error_logger)
-    _ = GenEvent.which_handlers(:lager_event)
-    _ = GenEvent.which_handlers(Logger)
+    _ = :gen_event.which_handlers(:error_logger) # From Elixir upstream Logger module.
+    _ = :gen_event.which_handlers(:lager_event) # Legacy? From this codebase.
+    :gen_event.sync_notify(Logger, :flush) # From Elixir upstream Logger module.
     :ok
   end
 
@@ -115,8 +115,8 @@ defmodule LagerLogger do
   end
 
   # Stolen from Logger.
-  defp notify(:sync, msg),  do: GenEvent.sync_notify(Logger, msg)
-  defp notify(:async, msg), do: GenEvent.notify(Logger, msg)
+  defp notify(:sync, msg), do: :gen_event.sync_notify(Logger, msg)
+  defp notify(:async, msg), do: :gen_event.notify(Logger, msg)
 
   @doc false
   # Lager's parse transform converts the pid into a charlist. Logger's metadata expects pids as

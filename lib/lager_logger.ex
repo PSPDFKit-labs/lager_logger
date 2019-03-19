@@ -49,35 +49,39 @@ defmodule LagerLogger do
     end
   end
 
-  @doc false
-  def handle_event({:log, lager_msg}, mask) do
-    %{mode: mode, truncate: truncate, level: min_level, utc_log: utc_log?} = Logger.Config.__data__
-    level = severity_to_level(:lager_msg.severity(lager_msg))
+  # Elixir v1.9.0 has refactored logging, so now data fetched directly for log level
+  if function_exported?(Logger.Config, :translation_data, 0) do
+    @doc false
+    def handle_event({:log, lager_msg}, mask) do
+      level = severity_to_level(:lager_msg.severity(lager_msg))
+      is_loggable? = :lager_util.is_loggable(lager_msg, mask, __MODULE__)
 
-    if :lager_util.is_loggable(lager_msg, mask, __MODULE__) and
-      Logger.compare_levels(level, min_level) != :lt do
+      case is_loggable? and Logger.Config.log_data(level) do
+        false ->
+          {:ok, mask}
 
-      metadata = :lager_msg.metadata(lager_msg) |> normalize_pid
+        {:discard, _} ->
+          {:ok, mask}
 
-      # lager_msg's message is already formatted chardata
-      message = Logger.Utils.truncate(:lager_msg.message(lager_msg), truncate)
-
-      # Lager always uses local time and converts it when formatting using :lager_util.maybe_utc
-      timestamp = timestamp(:lager_msg.timestamp(lager_msg), utc_log?)
-
-      group_leader = case Keyword.fetch(metadata, :pid) do
-        {:ok, pid} when is_pid(pid) ->
-          case Process.info(pid, :group_leader) do
-            {:group_leader, gl} -> gl
-            nil -> Process.group_leader # if pid dead, pretend it's us as must be a pid
-          end
-        _ -> Process.group_leader # if lager didn't give us a pid just pretend it's us
+        {mode, config} ->
+          do_log(level, lager_msg, mode, config)
+          {:ok, mask}
       end
+    end
+  else
+    @doc false
+    def handle_event({:log, lager_msg}, mask) do
+      %{mode: mode, level: min_level} = config = Logger.Config.__data__()
 
-      _ = notify(mode, {level, group_leader, {Logger, message, timestamp, metadata}})
-      {:ok, mask}
-    else
-      {:ok, mask}
+      level = severity_to_level(:lager_msg.severity(lager_msg))
+
+      if :lager_util.is_loggable(lager_msg, mask, __MODULE__) and
+           Logger.compare_levels(level, min_level) != :lt do
+        do_log(level, lager_msg, mode, config)
+        {:ok, mask}
+      else
+        {:ok, mask}
+      end
     end
   end
 
@@ -162,4 +166,33 @@ defmodule LagerLogger do
   defp severity_to_level(:critical),  do: :error
   defp severity_to_level(:alert),     do: :error
   defp severity_to_level(:emergency), do: :error
+
+  defp do_log(level, lager_msg, mode, %{truncate: truncate, utc_log: utc_log?}) do
+    metadata = :lager_msg.metadata(lager_msg) |> normalize_pid
+
+    # lager_msg's message is already formatted chardata
+    message = Logger.Utils.truncate(:lager_msg.message(lager_msg), truncate)
+
+    # Lager always uses local time and converts it when formatting using :lager_util.maybe_utc
+    timestamp = timestamp(:lager_msg.timestamp(lager_msg), utc_log?)
+
+    group_leader = find_group_leader(metadata)
+
+    _ = notify(mode, {level, group_leader, {Logger, message, timestamp, metadata}})
+  end
+
+  defp find_group_leader(metadata) do
+    case Keyword.fetch(metadata, :pid) do
+      {:ok, pid} when is_pid(pid) ->
+        case Process.info(pid, :group_leader) do
+          {:group_leader, gl} -> gl
+          # if pid dead, pretend it's us as must be a pid
+          nil -> Process.group_leader()
+        end
+
+      # if lager didn't give us a pid just pretend it's us
+      _ ->
+        Process.group_leader()
+    end
+  end
 end

@@ -32,7 +32,10 @@ defmodule LagerLogger do
   """
   @spec flush() :: :ok
   def flush() do
-    _ = :gen_event.which_handlers(:error_logger)
+    if Process.whereis(:error_logger) do
+      _ = :gen_event.which_handlers(:error_logger)
+    end
+
     _ = :gen_event.which_handlers(:lager_event)
     _ = :gen_event.which_handlers(Logger)
     :ok
